@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="es-UY">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Dashboard de monitoreo y telecontrol de la Estación Agrícola IoT del Grupo 01 de UTEC.">
+  <title>Estación Agrícola IoT | UTEC · Grupo 01</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #081411;
+      --panel: #10221d;
+      --panel-2: #142a23;
+      --line: rgba(180, 210, 193, .13);
+      --text: #edf6ef;
+      --muted: #9ab2a3;
+      --green: #68d391;
+      --green-2: #2f9e67;
+      --amber: #f6c66b;
+      --red: #ff8585;
+      --blue: #73b7e8;
+      --shadow: 0 18px 55px rgba(0,0,0,.22);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(900px 500px at 10% -10%, rgba(47,158,103,.17), transparent 60%),
+        radial-gradient(700px 420px at 100% 0%, rgba(115,183,232,.10), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      line-height: 1.45;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .wrap { width: min(1440px, calc(100% - 36px)); margin: 0 auto; }
+    .topbar {
+      border-bottom: 1px solid var(--line);
+      background: rgba(8,20,17,.82);
+      backdrop-filter: blur(14px);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar-inner {
+      min-height: 76px; display: flex; align-items: center;
+      justify-content: space-between; gap: 18px;
+    }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-mark {
+      width: 43px; height: 43px; border-radius: 13px;
+      display: grid; place-items: center; font-size: 23px;
+      background: linear-gradient(145deg, #236b49, #173e30);
+      border: 1px solid rgba(133,220,166,.25);
+      box-shadow: 0 8px 24px rgba(47,158,103,.18);
+    }
+    .brand h1 { margin: 0; font-size: 17px; letter-spacing: -.02em; }
+    .brand p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .top-actions { display:flex; align-items:center; gap:12px; }
+    .server-state { color: var(--muted); font-size: 12px; display:flex; align-items:center; gap:7px; }
+    .dot { width:8px; height:8px; display:inline-block; border-radius:50%; background:var(--green); box-shadow:0 0 12px rgba(104,211,145,.6); }
+    .btn {
+      border: 1px solid rgba(130,190,151,.25); border-radius: 10px;
+      padding: 10px 14px; color: var(--text); background: #1a382b;
+      font-weight: 650; transition: .15s ease;
+    }
+    .btn:hover { background:#24513b; transform: translateY(-1px); }
+    .btn.primary { background: linear-gradient(135deg,#2f9e67,#247b53); border-color: transparent; color:#fff; }
+    .btn.primary:hover { filter:brightness(1.08); }
+    .btn.ghost { background: transparent; color: var(--muted); }
+    .btn:disabled { opacity:.55; cursor:wait; transform:none; }
+    main { padding: 28px 0 52px; }
+    .intro { display:flex; justify-content:space-between; align-items:flex-end; gap:18px; margin-bottom:22px; }
+    .eyebrow { color:var(--green); text-transform:uppercase; letter-spacing:.13em; font-size:10px; font-weight:800; }
+    .intro h2 { margin:7px 0 5px; font-size:clamp(24px,3vw,34px); letter-spacing:-.04em; }
+    .intro p { margin:0; color:var(--muted); font-size:14px; }
+    .updated { color:var(--muted); font-size:12px; white-space:nowrap; }
+    .panel {
+      background: linear-gradient(160deg, rgba(20,42,35,.96), rgba(13,31,25,.96));
+      border:1px solid var(--line); border-radius:17px; padding:19px;
+      box-shadow:var(--shadow); min-width:0;
+    }
+    .panel h3 { margin:0 0 5px; font-size:15px; letter-spacing:-.01em; }
+    .panel .sub { color:var(--muted); font-size:12px; margin:0 0 15px; }
+    .filters {
+      display:flex; align-items:end; flex-wrap:wrap; gap:12px;
+      padding:15px; margin-bottom:18px; background:rgba(16,34,29,.78);
+      border:1px solid var(--line); border-radius:14px;
+    }
+    .field { display:flex; flex-direction:column; gap:6px; min-width:145px; }
+    .field label { color:var(--muted); font-size:11px; font-weight:700; }
+    input, select {
+      color:var(--text); background:#091a14; border:1px solid rgba(180,210,193,.2);
+      border-radius:9px; padding:10px 11px; outline:none; min-height:40px;
+    }
+    input:focus, select:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(104,211,145,.12); }
+    .metrics { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:13px; margin-bottom:18px; }
+    .metric {
+      background:linear-gradient(155deg,#142c23,#0f211b);
+      border:1px solid var(--line); border-radius:15px; padding:16px;
+      min-height:112px; position:relative; overflow:hidden;
+    }
+    .metric:after { content:""; position:absolute; width:90px;height:90px;border-radius:50%;right:-35px;bottom:-50px;background:rgba(104,211,145,.07); }
+    .metric .name { color:var(--muted); font-size:11px; font-weight:700; }
+    .metric .value { font-size:27px; font-weight:750; letter-spacing:-.04em; margin-top:11px; }
+    .metric .unit { color:var(--muted); font-size:11px; margin-left:4px; font-weight:500; }
+    .metric .sensor { color:#7b9b88; font-size:10px; margin-top:3px; }
+    .charts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; margin-bottom:18px; }
+    .chart-box { height:260px; position:relative; }
+    .wide { grid-column:1 / -1; }
+    .lower-grid { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr); gap:15px; margin-bottom:18px; }
+    .intervals { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+    .interval {
+      background:rgba(5,18,13,.48); border:1px solid var(--line);
+      border-radius:11px; padding:12px 10px;
+    }
+    .interval span { display:block; color:var(--muted); font-size:10px; }
+    .interval strong { display:block; font-size:20px; margin-top:5px; }
+    .control-form { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .control-form .field { min-width:0; }
+    .control-form .submit { grid-column:1/-1; width:100%; }
+    .note { color:var(--muted); font-size:11px; margin:12px 0 0; }
+    .message { border-radius:10px; padding:10px 12px; margin-top:12px; font-size:12px; display:none; }
+    .message.ok { display:block; color:#a7f3c2; background:rgba(47,158,103,.14); border:1px solid rgba(104,211,145,.2); }
+    .message.err { display:block; color:#ffc0c0; background:rgba(255,100,100,.10); border:1px solid rgba(255,100,100,.2); }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:12px; min-width:580px; }
+    th { text-align:left; color:var(--muted); font-size:10px; font-weight:750; letter-spacing:.04em; text-transform:uppercase; padding:10px 9px; border-bottom:1px solid var(--line); }
+    td { padding:10px 9px; border-bottom:1px solid rgba(180,210,193,.08); color:#dce9df; }
+    tr:last-child td { border-bottom:0; }
+    .pill { display:inline-flex; align-items:center; gap:6px; border-radius:30px; padding:4px 8px; font-size:10px; font-weight:750; background:rgba(154,178,163,.12); color:#c4d4c9; }
+    .pill.confirmado { background:rgba(47,158,103,.16); color:#9ae6b4; }
+    .pill.pendiente { background:rgba(246,198,107,.14); color:#f6d58e; }
+    .pill.error, .pill.sin_confirmacion { background:rgba(255,133,133,.13); color:#ffaaaa; }
+    .empty { padding:20px; text-align:center; color:var(--muted); font-size:12px; }
+    .metrology { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .metrology div { background:rgba(5,18,13,.42); border:1px solid var(--line); border-radius:11px; padding:12px; }
+    .metrology strong { display:block; font-size:12px; }
+    .metrology span { display:block; color:var(--muted); font-size:11px; margin-top:5px; }
+    footer { color:#718b7a; text-align:center; font-size:11px; padding:20px 0 0; }
+    #loginView { min-height:100vh; display:grid; place-items:center; padding:24px; }
+    .login-card {
+      width:min(430px,100%); padding:30px; border-radius:20px;
+      background:linear-gradient(155deg,#142c23,#0d1e18);
+      border:1px solid var(--line); box-shadow:var(--shadow);
+    }
+    .login-card .brand-mark { margin-bottom:20px; width:52px;height:52px;font-size:27px; }
+    .login-card h1 { margin:0 0 7px; font-size:25px; letter-spacing:-.04em; }
+    .login-card p { color:var(--muted); font-size:13px; margin:0 0 22px; }
+    .login-card .field { margin-bottom:14px; }
+    .login-card .btn { width:100%; margin-top:4px; }
+    .login-error { color:#ffaaaa; font-size:12px; min-height:18px; margin-top:10px; }
+    [hidden] { display:none !important; }
+    @media (max-width:1050px) {
+      .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .lower-grid { grid-template-columns:1fr; }
+    }
+    @media (max-width:700px) {
+      .wrap { width:min(100% - 22px,1440px); }
+      .topbar-inner { min-height:66px; }
+      .brand h1 { font-size:14px; }
+      .brand p { font-size:10px; }
+      .server-state { display:none; }
+      .intro { display:block; }
+      .updated { display:block; margin-top:10px; }
+      .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .charts { grid-template-columns:1fr; }
+      .wide { grid-column:auto; }
+      .intervals { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .metrology { grid-template-columns:1fr; }
+      .control-form { grid-template-columns:1fr; }
+      .control-form .submit { grid-column:auto; }
+      .panel { padding:15px; }
+    }
+  </style>
+</head>
+<body>
+  <section id="loginView">
+    <form class="login-card" id="loginForm">
+      <div class="brand-mark">🌱</div>
+      <div class="eyebrow">UTEC · Instrumentación y Medidas Eléctricas</div>
+      <h1>Estación Agrícola IoT</h1>
+      <p>Grupo 01 · Panel de monitoreo, históricos y configuración remota.</p>
+      <div class="field">
+        <label for="password">Contraseña del dashboard</label>
+        <input id="password" type="password" autocomplete="current-password" required placeholder="Ingresá la contraseña">
+      </div>
+      <button class="btn primary" id="loginButton" type="submit">Ingresar al sistema</button>
+      <div class="login-error" id="loginError"></div>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <div class="topbar">
+      <div class="wrap topbar-inner">
+        <div class="brand">
+          <div class="brand-mark">🌱</div>
+          <div>
+            <h1>Estación Agrícola IoT</h1>
+            <p>UTEC · Instrumentación y Medidas Eléctricas · Grupo 01</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <div class="server-state"><span class="dot"></span><span id="serverLabel">Conectado a UTEC</span></div>
+          <button class="btn ghost" id="logoutButton" type="button">Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+
+    <main class="wrap">
+      <section class="intro">
+        <div>
+          <div class="eyebrow">Monitoreo y telecontrol · Nivel 3</div>
+          <h2>Panel de instrumentación</h2>
+          <p>Visualización de mediciones, consulta histórica y configuración remota de sensores.</p>
+        </div>
+        <div class="updated" id="lastUpdated">Esperando datos del servidor…</div>
+      </section>
+
+      <section class="filters">
+        <div class="field">
+          <label for="dateFrom">Desde</label>
+          <input id="dateFrom" type="date">
+        </div>
+        <div class="field">
+          <label for="dateTo">Hasta</label>
+          <input id="dateTo" type="date">
+        </div>
+        <button class="btn primary" id="filterButton" type="button">Consultar histórico</button>
+        <button class="btn" id="refreshButton" type="button">Actualizar ahora</button>
+      </section>
+
+      <section class="metrics" id="metrics">
+        <article class="metric"><div class="name">Humedad del suelo</div><div class="value" id="mSoil">—</div><div class="sensor">HW-103 · señal ADC</div></article>
+        <article class="metric"><div class="name">Luminosidad</div><div class="value" id="mLight">—</div><div class="sensor">LDR · señal ADC</div></article>
+        <article class="metric"><div class="name">Temperatura del suelo</div><div class="value" id="mSoilTemp">—</div><div class="sensor">DS18B20 · °C</div></article>
+        <article class="metric"><div class="name">Temperatura del aire</div><div class="value" id="mAirTemp">—</div><div class="sensor">HW-507 · °C</div></article>
+        <article class="metric"><div class="name">Humedad del aire</div><div class="value" id="mAirHum">—</div><div class="sensor">HW-507 · %HR</div></article>
+      </section>
+
+      <section class="charts">
+        <article class="panel">
+          <h3>Temperatura del suelo</h3>
+          <p class="sub">DS18B20 · banda instrumental de referencia ±0,5 °C</p>
+          <div class="chart-box"><canvas id="chartSoilTemp"></canvas></div>
+        </article>
+        <article class="panel">
+          <h3>Temperatura ambiente</h3>
+          <p class="sub">HW-507 · banda instrumental de referencia ±2 °C</p>
+          <div class="chart-box"><canvas id="chartAirTemp"></canvas></div>
+        </article>
+        <article class="panel">
+          <h3>Humedad del aire</h3>
+          <p class="sub">HW-507 · banda instrumental de referencia ±5 puntos %HR</p>
+          <div class="chart-box"><canvas id="chartAirHum"></canvas></div>
+        </article>
+        <article class="panel">
+          <h3>Humedad del suelo</h3>
+          <p class="sub">HW-103 · lectura eléctrica del ADC (0–1023 cuentas)</p>
+          <div class="chart-box"><canvas id="chartSoil"></canvas></div>
+        </article>
+        <article class="panel wide">
+          <h3>Luminosidad</h3>
+          <p class="sub">LDR · lectura eléctrica del ADC (0–1023 cuentas)</p>
+          <div class="chart-box"><canvas id="chartLight"></canvas></div>
+        </article>
+      </section>
+
+      <section class="lower-grid">
+        <article class="panel">
+          <h3>Intervalos actualmente registrados</h3>
+          <p class="sub">Última configuración reportada por el Arduino Nano.</p>
+          <div class="intervals" id="intervals">
+            <div class="interval"><span>HW-103</span><strong>—</strong></div>
+            <div class="interval"><span>LDR</span><strong>—</strong></div>
+            <div class="interval"><span>DS18B20</span><strong>—</strong></div>
+            <div class="interval"><span>HW-507</span><strong>—</strong></div>
+          </div>
+          <p class="note">El HW-507 utiliza el mismo intervalo para temperatura y humedad ambiente.</p>
+        </article>
+
+        <article class="panel">
+          <h3>Configuración remota</h3>
+          <p class="sub">El comando se encola en UTEC y el sincronizador lo entrega al Nano por MQTT e I2C.</p>
+          <form id="commandForm" class="control-form">
+            <div class="field">
+              <label for="sensorSelect">Sensor</label>
+              <select id="sensorSelect">
+                <option value="1">1 · Humedad del suelo (HW-103)</option>
+                <option value="2">2 · Luminosidad (LDR)</option>
+                <option value="3">3 · Temperatura del suelo (DS18B20)</option>
+                <option value="4">4 · Ambiente (HW-507)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="secondsInput">Intervalo (segundos)</label>
+              <input id="secondsInput" type="number" min="1" max="60" value="5" required>
+            </div>
+            <button class="btn primary submit" id="commandButton" type="submit">Enviar configuración</button>
+          </form>
+          <div id="commandMessage" class="message"></div>
+          <p class="note">Rango permitido: 1 a 60 s. El HW-507 requiere un mínimo de 3 s.</p>
+        </article>
+      </section>
+
+      <section class="panel" style="margin-bottom:18px">
+        <h3>Estado de los comandos remotos</h3>
+        <p class="sub">El estado se actualiza automáticamente. “Confirmado” indica que llegó el acuse del ESP8266/Nano.</p>
+        <div class="table-wrap" id="commandsTable"><div class="empty">Cargando comandos…</div></div>
+      </section>
+
+      <section class="panel" style="margin-bottom:18px">
+        <h3>Históricos consolidados cada 10 minutos</h3>
+        <p class="sub">Promedios de las ventanas completas recibidas desde el sincronizador.</p>
+        <div class="table-wrap" id="summariesTable"><div class="empty">Cargando resúmenes…</div></div>
+      </section>
+
+      <section class="panel">
+        <h3>Referencias metrológicas</h3>
+        <p class="sub">Las bandas indicadas se interpretan según el alcance de cada sensor; no todas representan exactitud total del sistema.</p>
+        <div class="metrology">
+          <div><strong>DS18B20</strong><span>Referencia ±0,5 °C dentro del rango especificado.</span></div>
+          <div><strong>HW-507</strong><span>Referencia ±2 °C y ±5 puntos %HR.</span></div>
+          <div><strong>HW-103 y LDR</strong><span>±0,5 cuenta ADC corresponde solo a cuantización ideal; no es exactitud de humedad o lux.</span></div>
+        </div>
+      </section>
+
+      <footer>Universidad Tecnológica del Uruguay · Estación Agrícola IoT · Grupo 01</footer>
+    </main>
+  </div>
+
+  <script>
+    const API = 'dashboard_api.php';
+    const charts = {};
+    let timerRefresh = null;
+    let timerCommands = null;
+    let lastRows = [];
+
+    // Busca un elemento de la página por su identificador.
+    const $ = (id) => document.getElementById(id);
+
+    // Escapa texto antes de insertarlo en el HTML de las tablas.
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+      }[ch]));
+    }
+
+    // Envía una solicitud al backend y controla los errores de sesión.
+
+    async function request(action, options = {}) {
+      const response = await fetch(`${API}?action=${encodeURIComponent(action)}${options.query ? '&' + options.query : ''}`, {
+        method: options.method || 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: options.body ? {'Content-Type':'application/json'} : {},
+        body: options.body ? JSON.stringify(options.body) : undefined
+      });
+
+      let data;
+      try { data = await response.json(); }
+      catch (_) { throw new Error('El servidor devolvió una respuesta que no es JSON.'); }
+
+      if (response.status === 401 && action !== 'login') {
+        showLogin('La sesión expiró. Ingresá nuevamente.');
+        throw new Error(data.error || 'Sesión no iniciada.');
+      }
+      if (!response.ok || data.ok === false) throw new Error(data.error || `Error HTTP ${response.status}`);
+      return data;
+    }
+
+    // Convierte una fecha al formato que usan los campos date.
+
+    function localDateString(date) {
+      const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return d.toISOString().slice(0,10);
+    }
+
+    // Carga por defecto los últimos siete días en el filtro histórico.
+
+    function setDefaultDates() {
+      const today = new Date();
+      const weekAgo = new Date();
+      weekAgo.setDate(today.getDate() - 6);
+      $('dateFrom').value = localDateString(weekAgo);
+      $('dateTo').value = localDateString(today);
+    }
+
+    // Interpreta las fechas UTC que devuelve el servidor.
+
+    function toDate(value) {
+      if (!value) return null;
+      const text = String(value).replace(' ', 'T');
+      return new Date(text.endsWith('Z') ? text : text + 'Z');
+    }
+
+    // Muestra una fecha en el formato local de Uruguay.
+
+    function dateLabel(value) {
+      const date = toDate(value);
+      return date && !Number.isNaN(date.getTime())
+        ? date.toLocaleString('es-UY', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})
+        : String(value ?? '—');
+    }
+
+    // Formatea valores numéricos respetando los decimales solicitados.
+
+    function number(value, decimals = 1) {
+      if (value === null || value === undefined || value === '') return '—';
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toLocaleString('es-UY', {minimumFractionDigits:decimals, maximumFractionDigits:decimals}) : '—';
+    }
+
+    // Convierte los intervalos guardados en JSON a una lista.
+
+    function parseIntervals(value) {
+      if (Array.isArray(value)) return value;
+      try { return JSON.parse(value || '[]'); } catch (_) { return []; }
+    }
+
+    // Actualiza las cinco mediciones y los intervalos actuales.
+
+    function renderMetrics(row) {
+      $('mSoil').innerHTML = `${number(row.humedad_suelo_adc,0)}<span class="unit">ADC</span>`;
+      $('mLight').innerHTML = `${number(row.luminosidad_adc,0)}<span class="unit">ADC</span>`;
+      $('mSoilTemp').innerHTML = `${number(row.temperatura_suelo,1)}<span class="unit">°C</span>`;
+      $('mAirTemp').innerHTML = `${number(row.temperatura_aire,1)}<span class="unit">°C</span>`;
+      $('mAirHum').innerHTML = `${number(row.humedad_aire,1)}<span class="unit">%</span>`;
+
+      const values = parseIntervals(row.intervalos_s);
+      const names = ['HW-103','LDR','DS18B20','HW-507'];
+      $('intervals').innerHTML = names.map((name, i) =>
+        `<div class="interval"><span>${name}</span><strong>${values[i] !== undefined ? escapeHtml(values[i]) + ' s' : '—'}</strong></div>`
+      ).join('');
+      $('lastUpdated').textContent = `Última medición: ${dateLabel(row.fecha_hora)} · ID ${escapeHtml(row.origen_id)}`;
+    }
+
+    // Convierte un color hexadecimal a RGBA para sombrear las bandas.
+
+    function hexToRgba(hex, alpha = 0.14) {
+      const clean = hex.replace('#','');
+      const r = parseInt(clean.slice(0,2),16);
+      const g = parseInt(clean.slice(2,4),16);
+      const b = parseInt(clean.slice(4,6),16);
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    // Dibuja una variable y su banda instrumental de referencia.
+
+    function drawChart(id, rows, field, label, unit, color, tolerance, range, decimals = 1) {
+      if (charts[id]) charts[id].destroy();
+      const ordered = [...rows].sort((a,b) => {
+        const da = toDate(a.fecha_hora)?.getTime() || 0;
+        const db = toDate(b.fecha_hora)?.getTime() || 0;
+        return da - db;
+      });
+      const labels = ordered.map(r => dateLabel(r.fecha_hora));
+      const values = ordered.map(r => {
+        const n = Number(r[field]);
+        return r[field] === null || r[field] === '' || !Number.isFinite(n) ? null : n;
+      });
+      const lower = values.map(v => v !== null && v >= range[0] && v <= range[1] ? Math.max(range[0], v - tolerance) : null);
+      const upper = values.map(v => v !== null && v >= range[0] && v <= range[1] ? Math.min(range[1], v + tolerance) : null);
+
+      const ctx = $(id).getContext('2d');
+      charts[id] = new Chart(ctx, {
+        type:'line',
+        data:{ labels, datasets:[
+          {label:'Límite inferior', data:lower, borderColor:'transparent', pointRadius:0, pointHitRadius:0, borderWidth:0, fill:false},
+          {label:'Límite superior', data:upper, borderColor:'transparent', pointRadius:0, pointHitRadius:0, borderWidth:0, fill:'-1', backgroundColor:hexToRgba(color,.14)},
+          {label, data:values, borderColor:color, backgroundColor:color, borderWidth:2, pointRadius:0, pointHoverRadius:4, tension:.24, spanGaps:false}
+        ]},
+        options:{
+          responsive:true, maintainAspectRatio:false, animation:false,
+          interaction:{mode:'index',intersect:false},
+          plugins:{
+            legend:{labels:{color:'#a9c0b1',boxWidth:10,boxHeight:10,font:{size:10}}},
+            tooltip:{callbacks:{label:(context)=>`${context.dataset.label}: ${number(context.parsed.y,decimals)} ${unit}`}}
+          },
+          scales:{
+            x:{ticks:{color:'#819b8b',maxTicksLimit:8,maxRotation:0,font:{size:9}},grid:{color:'rgba(180,210,193,.07)'}},
+            y:{title:{display:true,text:unit,color:'#9ab2a3',font:{size:10}},ticks:{color:'#819b8b',font:{size:9}},grid:{color:'rgba(180,210,193,.08)'}}
+          }
+        }
+      });
+    }
+
+    // Actualiza todos los gráficos del panel.
+
+    function renderCharts(rows) {
+      if (!window.Chart) {
+        $('serverLabel').textContent = 'No se pudo cargar Chart.js';
+        return;
+      }
+      drawChart('chartSoilTemp',rows,'temperatura_suelo','Temperatura del suelo','°C','#f5ad58',.5,[-10,85],1);
+      drawChart('chartAirTemp',rows,'temperatura_aire','Temperatura del aire','°C','#73b7e8',2,[0,50],1);
+      drawChart('chartAirHum',rows,'humedad_aire','Humedad del aire','%HR','#68d391',5,[20,90],1);
+      drawChart('chartSoil',rows,'humedad_suelo_adc','Señal HW-103','ADC','#b39af5',.5,[0,1023],0);
+      drawChart('chartLight',rows,'luminosidad_adc','Señal LDR','ADC','#f4d06f',.5,[0,1023],0);
+    }
+
+    // Construye la tabla con los promedios de diez minutos.
+
+    function renderSummaries(rows) {
+      if (!rows.length) {
+        $('summariesTable').innerHTML = '<div class="empty">Todavía no hay resúmenes para el período seleccionado. Se generan al cerrar cada ventana completa de 10 minutos.</div>';
+        return;
+      }
+      $('summariesTable').innerHTML = `<table><thead><tr>
+        <th>Inicio (UY)</th><th>Registros</th><th>Suelo ADC</th><th>Luz ADC</th><th>Temp. suelo</th><th>Temp. aire</th><th>HR aire</th>
+      </tr></thead><tbody>${rows.map(r => `<tr>
+        <td>${escapeHtml(dateLabel(r.inicio_utc))}</td>
+        <td>${escapeHtml(r.cantidad_registros)}</td>
+        <td>${number(r.humedad_suelo_adc,1)}</td>
+        <td>${number(r.luminosidad_adc,1)}</td>
+        <td>${number(r.temperatura_suelo_c,2)} °C</td>
+        <td>${number(r.temperatura_aire_c,2)} °C</td>
+        <td>${number(r.humedad_aire_pct,2)} %</td>
+      </tr>`).join('')}</tbody></table>`;
+    }
+
+    // Prepara la etiqueta visual correspondiente al estado de un comando.
+
+    function statusPill(state) {
+      const labels = {
+        pendiente:'Pendiente',
+        confirmado:'Confirmado por el Nano',
+        sin_confirmacion:'Sin confirmación',
+        error:'Error'
+      };
+      const cls = ['pendiente','confirmado','sin_confirmacion','error'].includes(state) ? state : '';
+      return `<span class="pill ${cls}">${escapeHtml(labels[state] || state || '—')}</span>`;
+    }
+
+    // Muestra los comandos enviados y sus confirmaciones.
+
+    function renderCommands(rows) {
+      if (!rows.length) {
+        $('commandsTable').innerHTML = '<div class="empty">Todavía no se enviaron comandos desde este dashboard.</div>';
+        return;
+      }
+      const sensorNames = {1:'HW-103 · Humedad suelo',2:'LDR · Luminosidad',3:'DS18B20 · Temperatura suelo',4:'HW-507 · Ambiente'};
+      $('commandsTable').innerHTML = `<table><thead><tr>
+        <th>Fecha</th><th>Sensor</th><th>Intervalo</th><th>Estado</th><th>Confirmación</th><th>Detalle</th>
+      </tr></thead><tbody>${rows.map(r => `<tr>
+        <td>${escapeHtml(dateLabel(r.creado_utc))}</td>
+        <td>${escapeHtml(sensorNames[Number(r.sensor)] || r.sensor)}</td>
+        <td>${escapeHtml(r.segundos)} s</td>
+        <td>${statusPill(r.estado)}</td>
+        <td>${r.confirmado_utc ? escapeHtml(dateLabel(r.confirmado_utc)) : '—'}</td>
+        <td>${escapeHtml(r.detalle || '—')}</td>
+      </tr>`).join('')}</tbody></table>`;
+    }
+
+    // Consulta las mediciones y los resúmenes del período elegido.
+
+    async function loadMeasurements() {
+      const desde = $('dateFrom').value;
+      const hasta = $('dateTo').value;
+      if (!desde || !hasta || desde > hasta) throw new Error('Revisá el rango de fechas.');
+      const query = new URLSearchParams({desde, hasta, limite:'1500'}).toString();
+      const result = await request('measurements', {query});
+      const rows = result.datos || [];
+      lastRows = rows;
+      if (!rows.length) {
+        ['mSoil','mLight','mSoilTemp','mAirTemp','mAirHum'].forEach(id => $(id).textContent = '—');
+        $('intervals').innerHTML = '<div class="empty">Sin datos para el período</div>';
+        $('lastUpdated').textContent = 'No hay mediciones en el período seleccionado.';
+        renderCharts([]);
+      } else {
+        renderMetrics(rows[0]);
+        renderCharts(rows);
+      }
+
+      const summary = await request('summaries', {query});
+      renderSummaries(summary.datos || []);
+    }
+
+    // Actualiza la lista de comandos remotos.
+
+    async function loadCommands() {
+      const result = await request('commands');
+      renderCommands(result.datos || []);
+    }
+
+    // Actualiza los datos y el estado de conexión del servidor.
+
+    async function refreshAll() {
+      try {
+        $('serverLabel').textContent = 'Consultando servidor…';
+        await loadMeasurements();
+        await loadCommands();
+        $('serverLabel').textContent = 'Conectado a UTEC';
+      } catch (error) {
+        $('serverLabel').textContent = 'Error de conexión';
+        if (!String(error.message).includes('Sesión')) showMessage('commandMessage', error.message, false);
+      }
+    }
+
+    // Muestra un mensaje de resultado debajo del formulario.
+
+    function showMessage(id, message, ok) {
+      const node = $(id);
+      node.textContent = message;
+      node.className = `message ${ok ? 'ok' : 'err'}`;
+    }
+
+    // Limpia el mensaje anterior del formulario.
+
+    function hideMessage(id) {
+      const node = $(id);
+      node.textContent = '';
+      node.className = 'message';
+    }
+
+    // Vuelve a mostrar el formulario cuando no hay una sesión válida.
+
+    function showLogin(message = '') {
+      $('app').hidden = true;
+      $('loginView').hidden = false;
+      $('loginError').textContent = message;
+      if (timerRefresh) clearInterval(timerRefresh);
+      if (timerCommands) clearInterval(timerCommands);
+      timerRefresh = timerCommands = null;
+    }
+
+    // Abre el panel y activa las actualizaciones automáticas.
+
+    async function showApp() {
+      $('loginView').hidden = true;
+      $('app').hidden = false;
+      await refreshAll();
+      if (timerRefresh) clearInterval(timerRefresh);
+      if (timerCommands) clearInterval(timerCommands);
+      timerRefresh = setInterval(() => loadMeasurements().catch(() => {}), 7000);
+      timerCommands = setInterval(() => loadCommands().catch(() => {}), 4000);
+    }
+
+    $('loginForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      $('loginButton').disabled = true;
+      $('loginError').textContent = 'Verificando…';
+      try {
+        await request('login', {method:'POST', body:{password:$('password').value}});
+        $('password').value = '';
+        await showApp();
+      } catch (error) {
+        $('loginError').textContent = error.message;
+      } finally {
+        $('loginButton').disabled = false;
+      }
+    });
+
+    $('logoutButton').addEventListener('click', async () => {
+      try { await request('logout', {method:'POST', body:{}}); } catch (_) {}
+      showLogin('Sesión cerrada.');
+    });
+
+    $('filterButton').addEventListener('click', () => refreshAll());
+    $('refreshButton').addEventListener('click', () => refreshAll());
+
+    $('commandForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      hideMessage('commandMessage');
+      const sensor = Number($('sensorSelect').value);
+      const segundos = Number($('secondsInput').value);
+      if (!Number.isInteger(segundos) || segundos < 1 || segundos > 60) {
+        showMessage('commandMessage','El intervalo debe estar entre 1 y 60 segundos.',false);
+        return;
+      }
+      if (sensor === 4 && segundos < 3) {
+        showMessage('commandMessage','El HW-507 requiere un mínimo de 3 segundos.',false);
+        return;
+      }
+      $('commandButton').disabled = true;
+      $('commandButton').textContent = 'Enviando…';
+      try {
+        const result = await request('command',{method:'POST',body:{sensor,segundos}});
+        showMessage('commandMessage',`Comando ${result.id} creado. Estado: pendiente. El sincronizador lo entregará al Arduino.`,true);
+        await loadCommands();
+      } catch (error) {
+        showMessage('commandMessage',error.message,false);
+      } finally {
+        $('commandButton').disabled = false;
+        $('commandButton').textContent = 'Enviar configuración';
+      }
+    });
+
+    // Prepara las fechas y comprueba si ya existe una sesión.
+
+    async function init() {
+      setDefaultDates();
+      try {
+        const session = await request('session');
+        if (session.autenticado) await showApp();
+        else showLogin();
+      } catch (error) {
+        showLogin(error.message);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "mqtt_host": "127.0.0.1",
+  "mqtt_puerto": 1883,
+  "mqtt_usuario": "agro",
+  "mqtt_password": ""
+}

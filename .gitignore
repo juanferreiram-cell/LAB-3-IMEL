@@ -1,0 +1,26 @@
+# Credenciales y configuración local
+secrets.h
+config.php
+config_local.json
+config_sincronizador.json
+.streamlit/secrets.toml
+.env
+
+# Bases de datos y estado generado
+*.db
+*.sqlite
+*.sqlite3
+estado_sincronizacion.json
+*.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

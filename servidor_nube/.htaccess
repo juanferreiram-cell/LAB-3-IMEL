@@ -1,0 +1,11 @@
+Options -Indexes
+RewriteEngine On
+
+# Rutas que utiliza el sincronizador de la PC local.
+RewriteRule ^health/?$ api.php?route=health [QSA,L]
+RewriteRule ^api/(.*)$ api.php?route=$1 [QSA,L]
+
+# Los archivos de configuración y las bases locales no se deben servir por HTTP.
+<FilesMatch "^(config\.php|config\.example\.php|.*\.(db|sqlite|json|toml))$">
+    Require all denied
+</FilesMatch>
